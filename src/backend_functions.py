@@ -455,3 +455,5 @@ def sci_num_dot(num, dec_pts = 2):
     base = int(np.log10(num))
     val = num/10**base
     return (r'${:.' + str(dec_pts) + r'f} \cdot 10^{{{:.0f}}}$').format(val, base)
+
+  
