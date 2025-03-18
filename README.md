@@ -1,6 +1,4 @@
-<img src="src/neutron_bear.ico" alt="Icon" height="100"> 
-
-# PRINSAS 2.0
+<img src="images/PRINSAS_banner.svg" alt="Icon" height="100"> 
 
 
 ## Overview
