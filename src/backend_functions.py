@@ -14,7 +14,7 @@ import plot_formating as pf
 
 # Function used to subtract flat background and limit the background-subtracted 
 # data to Q-max
-def subtract_background(QQ_original, IQ_original, bkgrd, QQ_max):
+def subtract_background(QQ_original, IQ_original, bkgrd, QQ_min, QQ_max):
     # Subtract background and find negative IQ values
     IQ_subtract = IQ_original - bkgrd
     idx_IQ_negative = np.where(IQ_subtract <= 0)
@@ -26,18 +26,12 @@ def subtract_background(QQ_original, IQ_original, bkgrd, QQ_max):
     except ValueError:
         QQ_subtract = QQ_original
     
-    # Remove data points at Q values larger than Q-max and return
-    QQ_trim, IQ_trim = trim_data(QQ_subtract, IQ_subtract, QQ_max)
+    # Remove data points at Q values outside the specified Q range and return
+    select_pos = np.logical_and(QQ_min < QQ_subtract, QQ_subtract < QQ_max) 
+    QQ_trim = QQ_subtract[select_pos]
+    IQ_trim = IQ_subtract[select_pos]
     return QQ_subtract, IQ_subtract, QQ_trim, IQ_trim
 
-
-# This function remove data points at Q values larger than Q-max
-def trim_data(QQ_original, IQ_original, QQ_max):
-    remove_pos = QQ_original > QQ_max
-    QQ_trim = QQ_original[~remove_pos]
-    IQ_trim = IQ_original[~remove_pos]
-    return QQ_trim, IQ_trim 
-    
 
 # Function used to read SAS data file and return the corresponding Q, IQ and 
 # dIQ values
@@ -143,11 +137,22 @@ def plot_SANS_data(QQ, IQ, dIQ, fig, canvas):
 
 # This function used to plot the background-subtracted SAS data to the 'SAS Data' 
 # and 'SAS Data vs. Fitted Result' plotting window
-def plot_SANS_subtract(QQ_trim, IQ_trim, fig, canvas):
+def plot_SANS_subtract(QQ_trim, IQ_trim, QQ_origin, bkgrd, fig, canvas):
     ax = fig.get_axes()[0]
     line_list = ax.get_lines()
-    if len(line_list) > 3:
-        line_list[-1].remove() # remove previously plotted result
+    if len(line_list) > 3:      # remove previously plotted result
+        _, labels = ax.get_legend_handles_labels()
+        labels = np.array(labels)
+        try:
+            line_list[np.where(labels == 'Subtracted Data')[0][0]+3].remove()
+        except: pass
+        try:
+            line_list[np.where(labels == 'Background')[0][0]+3].remove()
+        except: pass
+    if bkgrd > 0:
+        ax.plot(QQ_origin, np.ones(QQ_origin.shape)*bkgrd, 
+                '-b', fillstyle = 'none', label = 'Background', zorder = 6,
+                linewidth = 1.5)
     ax.plot(QQ_trim, IQ_trim, 'sr', fillstyle = 'none', label = 'Subtracted Data', zorder = 5)
     ax.relim()
     ax.autoscale()

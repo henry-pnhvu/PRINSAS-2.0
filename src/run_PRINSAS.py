@@ -8,6 +8,7 @@ Created on Thu Dec 19 19:41:41 2024
 import sys
 import time
 import warnings
+import tempfile
 import numpy as np
 import backend_functions as bf
 import plot_formating as pf
@@ -45,7 +46,7 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         print('Screen resolution = {:.0f} \u00D7 {:.0f}'.format(screen.size().width(),
                                                            screen.size().height()))
         print('UI Scale factor = {:.2f}'.format(self.scale))
-
+        
         # assigning default fitting values and draw program ui
         self.init_variables()
         self.init_ui()
@@ -83,17 +84,25 @@ class PRINSAS_App(QtWdgt.QMainWindow):
             QGroupBox:title{{subcontrol-origin: margin;
                              left: {round(self.scale*title_padding_left)}px;
                              padding: 0px {round(self.scale*5)}px 0px {round(self.scale*5)}px; }}''')
-        
     
     # Initiate variable essential for the fitting procedure.
     def init_variables(self):
+        # UI parameters
+        self.input_label_col = 0
+        self.input_field_col = 2
+        self.input_tool_tip_col = 4
+        self.input_confirm_col = 5
+        self.section_spacing = round(20*self.scale)
+        self.input_result_width = round(700*self.scale)
+        self.confirm_button_width = round(180*self.scale)
         # Chosen file directory
         self.chosen_data_file_dir = ''
         self.chosen_data_folder_dir = ''
         self.chosen_save_folder_dir = ''
         # Large-Q background
         self.bkgrd = 0
-        # Max Q value for analysis
+        # Q min and Q max for analysis
+        self.Qmin = 0
         self.Qmax = np.inf
         # Points per dec for result
         self.pts_per_dec = 10
@@ -145,7 +154,7 @@ class PRINSAS_App(QtWdgt.QMainWindow):
 
         # User input area
         user_input_result_panel = QtWdgt.QWidget()
-        user_input_result_panel.setFixedWidth(round(700*self.scale))    
+        user_input_result_panel.setFixedWidth(self.input_result_width)    
         user_input_result_layout = QtWdgt.QVBoxLayout()
         user_input_result_layout.setContentsMargins(0, 0, 0, 0)
         user_input_result_panel.setLayout(user_input_result_layout)
@@ -169,14 +178,14 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         data_input_grid.setRowMinimumHeight(3, round(30*self.scale))
         data_input_grid.setColumnMinimumWidth(1,round(17*self.scale))
         data_input_grid.setColumnMinimumWidth(2,round(120*self.scale))
-        data_input_grid.setColumnMinimumWidth(3,round(7*self.scale))
+        data_input_grid.setColumnMinimumWidth(3,round(40*self.scale))
         data_input_grid.setVerticalSpacing(round(15*self.scale))
         input_group_box.setLayout(data_input_grid)
         user_input_result_layout.addWidget(input_group_box)
-        user_input_result_layout.insertSpacing(1, round(20*self.scale))
+        user_input_result_layout.insertSpacing(1, self.section_spacing)
         
         # Add background input row to user input area
-        self.create_bkgrd_Qmax_input(data_input_grid, row = 0)
+        self.create_bkgrd_Q_range_input(data_input_grid, row = 0)
         
         # Add number of points per decade input row to user input area
         self.create_pts_per_dec_input(data_input_grid, row = 2)
@@ -186,16 +195,10 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         
         # Add run fit button to user input area
         self.run_fit_button = QtWdgt.QPushButton("Fit PDSP Model!")
-        self.run_fit_button.setStyleSheet(                                          
-            f'''
-            QPushButton{{font-size: {round(24*self.scale)}px; 
-                         font: bold italic; 
-                         padding: {round(7*self.scale)}px 0px {round(7*self.scale)}px 0px}}''')
-        self.run_fit_button.clicked.connect(self.run_fit_func)
-        self.run_fit_button.setEnabled(False)
+        self.format_PDSP_button()
         user_input_result_layout.addWidget(self.run_fit_button)
-        user_input_result_layout.insertSpacing(3, round(20*self.scale))
-        
+        user_input_result_layout.insertSpacing(3, self.section_spacing)
+
         # Add result display area
         result_group_box = QtWdgt.QGroupBox("PDSP Fit Results")
         self.set_style_sheet_group_box(result_group_box, font_size=24, 
@@ -203,14 +206,20 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                                        groupbox_padding_top=20, 
                                        title_padding_left=30)
         user_input_result_layout.addWidget(result_group_box)
-        user_input_result_layout.insertSpacing(5, round(20*self.scale))
+        user_input_result_layout.insertSpacing(5, self.section_spacing)
         self.result_grid = QtWdgt.QGridLayout()
         self.result_grid.setColumnMinimumWidth(1,round(5*self.scale))
         self.result_grid.setVerticalSpacing(round(15*self.scale))
         result_group_box.setLayout(self.result_grid)
         self.create_result(self.result_grid)
+        user_input_result_layout.insertSpacing(7, 
+                                               round(self.section_spacing*0.8))
+        
+        # Add plot descripiton area
+        plot_description_layout = QtWdgt.QVBoxLayout()
+        self.create_plot_description(plot_description_layout)
+        user_input_result_layout.addLayout(plot_description_layout)
         user_input_result_layout.addStretch()
-    
         
     # This function create the elements necessary for selecting the SANS data file
     def create_file_selection(self, file_selection_row):
@@ -228,35 +237,56 @@ class PRINSAS_App(QtWdgt.QMainWindow):
 
         # Text box to display and edit the file path
         self.file_dir_label = QtWdgt.QLabel("Select data file...")
-        self.file_dir_label.setFixedWidth(round(700*self.scale)-round(180*self.scale))
+        self.file_dir_label.setFixedWidth(self.input_result_width
+                                          -round(180*self.scale))
         file_selection_layout.addWidget(self.file_dir_label)
         
         # Add element to the main program
         file_selection_row.addLayout(file_selection_layout)
         
     # This function create the elements necessary for changing the flat background and Q-max
-    def create_bkgrd_Qmax_input(self, data_input_grid, row):
+    def create_bkgrd_Q_range_input(self, data_input_grid, row):
         # Background input elements
         bkgrd_label = QtWdgt.QLabel("Background (cm<sup>-1</sup>)")
         data_input_grid.addWidget(bkgrd_label, row, 0)
         self.bkgrd_input_box = QtWdgt.QLineEdit()
         self.bkgrd_input_box.setPlaceholderText("0.0")
-        data_input_grid.addWidget(self.bkgrd_input_box, row, 2)
+        data_input_grid.addWidget(self.bkgrd_input_box, row, 
+                                  self.input_field_col, 1, 2)
+        bkgrd_description = (
+            "<b>Background (cm<sup>-1</sup>):</b><br>"
+            "This is the flat background value to be subtracted from the original SAS profile prior to the analysis.<br>"
+            "The background value is determined such that the scattering profile forms a straight, continuous line in the large-Q region after subtraction."
+            )
+        bkgrd_tool_tip = self.make_tool_tip(bkgrd_description)
+        data_input_grid.addWidget(bkgrd_tool_tip, row, self.input_tool_tip_col)
         
-        # Qmax input elements
-        Qmax_label = QtWdgt.QLabel("Q max (\u212B<sup>-1</sup>)")
-        data_input_grid.addWidget(Qmax_label, row+1, 0)
+        # Q range input elements
+        Q_range_label = QtWdgt.QLabel("Q range (\u212B<sup>-1</sup>)")
+        data_input_grid.addWidget(Q_range_label, row+1, 0)
+        self.Qmin_input_box = QtWdgt.QLineEdit()
+        self.Qmin_input_box.setPlaceholderText("0")
         self.Qmax_input_box = QtWdgt.QLineEdit()
-        self.Qmax_input_box.setPlaceholderText("None")
-        data_input_grid.addWidget(self.Qmax_input_box, row+1, 2)
+        self.Qmax_input_box.setPlaceholderText("\u221E")
+        data_input_grid.addWidget(self.Qmin_input_box, row+1, 
+                                  self.input_field_col)
+        data_input_grid.addWidget(self.Qmax_input_box, row+1, 
+                                  self.input_field_col+1)
+        Qmax_description = (
+            "<b>Q max (Å<sup>-1</sup>):</b> The maximum Q value to be used for the analysis."
+            )
+        Qmax_tool_tip = self.make_tool_tip(Qmax_description)
+        data_input_grid.addWidget(Qmax_tool_tip, row+1, self.input_tool_tip_col)
         
         # Confirm button
-        self.confirm_bkgrd_Qmax_button = QtWdgt.QPushButton("Confirm\nBackground")
-        self.confirm_bkgrd_Qmax_button.setSizePolicy(QtWdgt.QSizePolicy.Policy.Expanding, 
-                                                QtWdgt.QSizePolicy.Policy.Expanding)
-        self.confirm_bkgrd_Qmax_button.clicked.connect(self.set_bkgrd_Qmax)
-        self.confirm_bkgrd_Qmax_button.setEnabled(False)
-        data_input_grid.addWidget(self.confirm_bkgrd_Qmax_button, row, 4, 2, 1)
+        self.confirm_bkgrd_Q_range_button = QtWdgt.QPushButton("Confirm\nValue")
+        self.confirm_bkgrd_Q_range_button.setMinimumWidth(self.confirm_button_width)
+        self.confirm_bkgrd_Q_range_button.setSizePolicy(QtWdgt.QSizePolicy.Policy.Expanding, 
+                                                       QtWdgt.QSizePolicy.Policy.Expanding)
+        self.confirm_bkgrd_Q_range_button.clicked.connect(self.set_bkgrd_Q_range)
+        self.confirm_bkgrd_Q_range_button.setEnabled(False)
+        data_input_grid.addWidget(self.confirm_bkgrd_Q_range_button, row, 
+                                  self.input_confirm_col, 2, 1)
         
     # This function create the elements necessary for changing the number of points 
     # per decade of the fit result
@@ -269,7 +299,17 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         # Text box for inputing Pts per dec value
         self.pts_per_dec_input_box = QtWdgt.QLineEdit()
         self.pts_per_dec_input_box.setPlaceholderText("10")
-        data_input_grid.addWidget(self.pts_per_dec_input_box, row, 2)
+        data_input_grid.addWidget(self.pts_per_dec_input_box, row, 
+                                  self.input_field_col, 1, 2)
+        # Tool tip element
+        description = (
+            "<b>Number of points per decade for result:</b><br>"
+            "Refers to the number of r<sub>i</sub> values per decade of r, where r = 2.5/Q, in the fit results.<br>"
+            "A higher number of r<sub>i</sub> values improves the fit to the original intensity profile. However, too many r<sub>i</sub> values lead to overfitting and increase computation time.<br>"
+            "Should be chosen such that the number of points in the fit result remains fewer than half of the input data points."
+            )       
+        tool_tip = self.make_tool_tip(description)
+        data_input_grid.addWidget(tool_tip, row, 4)
         
         # The following section help automatic detection of the value change in 
         # self.pts_per_dec_input_box and assign it to self.pts_per_dec
@@ -322,32 +362,75 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         data_input_grid.addWidget(contrast_label, row, 0)
         self.contrast_input_box = QtWdgt.QLineEdit()
         self.contrast_input_box.setPlaceholderText("3.0")
-        data_input_grid.addWidget(self.contrast_input_box, row, 2)
+        data_input_grid.addWidget(self.contrast_input_box, row, 
+                                  self.input_field_col, 1, 2)
+        contrast_description = (
+            "<b>Contrast between 2 phases (10<sup>10</sup> cm<sup>-2</sup>):</b><br>"
+            "Refers to ρ<sub>1</sub><sup>*</sup> - ρ<sub>2</sub><sup>*</sup> in the PDSP model.<br>"
+            "For porous systems without any filling medium (i.e., the filling medium is vacuum or air), the contrast is equal to the SLD of the solid."
+            )
+        contrast_tool_tip = self.make_tool_tip(contrast_description)
+        data_input_grid.addWidget(contrast_tool_tip, row, self.input_tool_tip_col)
         
         # Input box for solid density
         density_label = QtWdgt.QLabel("Sample bulk density<br>(g/cm<sup>3</sup>)")
         data_input_grid.addWidget(density_label, row+1, 0)
         self.density_input_box = QtWdgt.QLineEdit()
         self.density_input_box.setPlaceholderText("1.0")
-        data_input_grid.addWidget(self.density_input_box, row+1, 2)
+        data_input_grid.addWidget(self.density_input_box, row+1, 
+                                  self.input_field_col, 1, 2)
+        density_description = (
+            "<b>Sample bulk density (g/cm<sup>3</sup>): </b><br>"
+            "Determined as m<sub>sample</sub>/V<sub>sample</sub>, required for the volume-weighted pore distribution calculations."
+            )
+        density_tool_tip = self.make_tool_tip(density_description)
+        data_input_grid.addWidget(density_tool_tip, row+1,
+                                  self.input_tool_tip_col)
         
         # Input box for r value for SSA extrapolation
         r_SSA_extrapolate_label = QtWdgt.QLabel("Pore radius for SSA<br>extrapolation (nm)")
         data_input_grid.addWidget(r_SSA_extrapolate_label, row+2, 0)
         self.r_SSA_extrapolate_input_box = QtWdgt.QLineEdit()
         self.r_SSA_extrapolate_input_box.setPlaceholderText("0.2")
-        data_input_grid.addWidget(self.r_SSA_extrapolate_input_box, row+2, 2)
+        data_input_grid.addWidget(self.r_SSA_extrapolate_input_box, row+2, 
+                                  self.input_field_col, 1, 2)
+        r_SSA_extrapolate_description = (
+            "<b>Pore radius for SSA extrapolation (nm):</b><br>"
+            "Is the pore radius to which the SSA value is extrapolated "
+            "in the SSA(R) vs. R graph."
+            )
+        r_SSA_extrapolate_tool_tip = self.make_tool_tip(r_SSA_extrapolate_description)
+        data_input_grid.addWidget(r_SSA_extrapolate_tool_tip, row+2,
+                                  self.input_tool_tip_col)
 
         # Input box for number of points for SSA extrapolation
         num_pts_SSA_extrapolate_label = QtWdgt.QLabel("Number of points\nfor SSA extrapolation")
         data_input_grid.addWidget(num_pts_SSA_extrapolate_label, row+3, 0)
         self.num_pts_SSA_extrapolate_input_box = QtWdgt.QLineEdit()
         self.num_pts_SSA_extrapolate_input_box.setPlaceholderText("7")
-        data_input_grid.addWidget(self.num_pts_SSA_extrapolate_input_box, row+3, 2)
+        data_input_grid.addWidget(self.num_pts_SSA_extrapolate_input_box, row+3,
+                                  self.input_field_col, 1, 2)
+        num_pts_SSA_extrapolate_description = (
+            "<b>Number of points for SSA extrapolation:</b><br>"
+            "Refers to the number of data points used for the SSA extrapolation "
+            "to the  specified pore radius in the SSA(R) vs. R graph."
+            )
+        num_pts_SSA_extrapolate_tool_tip = self.make_tool_tip(num_pts_SSA_extrapolate_description)
+        data_input_grid.addWidget(num_pts_SSA_extrapolate_tool_tip, row+3,
+                                  self.input_tool_tip_col)
         
         # Input major phase
         major_phase_label = QtWdgt.QLabel("Major phase")
         data_input_grid.addWidget(major_phase_label, row+4, 0)
+        major_phase_description = (
+            "<b>Major phase:</b><br>"
+            "Since scattering intensity is symmetric for both phases, the phase "
+            "occupying most of the system's volume must be selected to ensure the "
+            "correct porosity value."
+            )        
+        major_phase_tool_tip = self.make_tool_tip(major_phase_description)
+        data_input_grid.addWidget(major_phase_tool_tip, row+4, 
+                                  self.input_tool_tip_col)
         # Flip switch
         selection_switch = QtWdgt.QHBoxLayout()
         solid_label = QtWdgt.QLabel("Solid")
@@ -356,54 +439,70 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         selection_switch.addWidget(solid_label, alignment=QtCore.Qt.AlignCenter)
         selection_switch.addWidget(phase_switch, alignment=QtCore.Qt.AlignCenter)
         selection_switch.addWidget(void_label, alignment=QtCore.Qt.AlignCenter)
-        data_input_grid.addLayout(selection_switch, row+4, 2)
+        data_input_grid.addLayout(selection_switch, row+4, 
+                                  self.input_field_col, 1, 2)
 
         # Confirm button
         self.recalc_PDSP_input_button = QtWdgt.QPushButton("Recalculate\nFit Result")
         self.recalc_PDSP_input_button.setStyleSheet(f'''QPushButton{{font-size: {round(25*self.scale)}px;}}''')
+        self.recalc_PDSP_input_button.setMinimumWidth(self.confirm_button_width)
         self.recalc_PDSP_input_button.setSizePolicy(QtWdgt.QSizePolicy.Policy.Expanding, 
-                                                QtWdgt.QSizePolicy.Policy.Expanding)
+                                                    QtWdgt.QSizePolicy.Policy.Expanding)
         self.recalc_PDSP_input_button.clicked.connect(self.recalc_PDSP_result)
         self.recalc_PDSP_input_button.setEnabled(False)
-        data_input_grid.addWidget(self.recalc_PDSP_input_button, row, 4, 5, 1)
+        data_input_grid.addWidget(self.recalc_PDSP_input_button, row, 
+                                  self.input_confirm_col, 5, 1)
+        
+    # This function format the 'Run PDSP Fit' button
+    def format_PDSP_button(self):
+        self.run_fit_button.setStyleSheet(                                          
+            f'''
+            /* Enabled Button - Matching SP_MessageBoxQuestion */
+            QPushButton {{
+                font-size: {round(26*self.scale)}px;
+                font: bold italic;
+                color: white;
+                padding: {round(12*self.scale)}px 0px {round(12*self.scale)}px 0px;
+                background-color: #1565C0;  /* Deep Blue */
+                border-radius: {round(8*self.scale)}px;
+                }}
+            /* Disabled Button - Reduced Contrast */
+            QPushButton:disabled {{
+                background-color: #64B5F6;  /* Lighter Blue */
+                color: #90CAF9;  /* Even Lighter Blue for Text */
+                }}
+            '''
+            )
+        self.run_fit_button.clicked.connect(self.run_fit_func)
+        self.run_fit_button.setEnabled(False)
         
     # This function create elements in the program for displaying the result
     # after the fit of PDSP model
     def create_result(self, result_grid):
-        # Porosity result
-        porosity_label = QtWdgt.QLabel('Porosity')
-        result_grid.addWidget(porosity_label, 0, 0)
-        self.porosity_box = QtWdgt.QLineEdit()
-        self.porosity_box.setReadOnly(True)
-        self.porosity_box.setPlaceholderText('-')
-        result_grid.addWidget(self.porosity_box, 0, 2)
         
-        # Average pore volume result
-        pore_volume_label = QtWdgt.QLabel('Average pore<br>volume (cm<sup>3</sup>)')
-        result_grid.addWidget(pore_volume_label, 1, 0)
-        self.pore_volume_box = QtWdgt.QLineEdit()
-        self.pore_volume_box.setReadOnly(True)
-        self.pore_volume_box.setPlaceholderText('-')
-        result_grid.addWidget(self.pore_volume_box, 1, 2)
+        def add_result_entry(result_grid, label_text, row):
+            label = QtWdgt.QLabel(label_text)
+            result_grid.addWidget(label, row, 0)
+            result_box = QtWdgt.QLineEdit()
+            result_box.setReadOnly(True)
+            result_box.setPlaceholderText('-')
+            result_grid.addWidget(result_box, row, 2)
+            
+            return label, result_box  # Return both for future reference   
         
-        # Pore concentration result
-        pore_concentration_label = QtWdgt.QLabel('Pore concentration<br>(cm<sup>-3</sup>)')
-        result_grid.addWidget(pore_concentration_label, 2, 0)
-        self.pore_concentration_box = QtWdgt.QLineEdit()
-        self.pore_concentration_box.setReadOnly(True)
-        self.pore_concentration_box.setPlaceholderText('-')
-        result_grid.addWidget(self.pore_concentration_box, 2, 2)
-        
-        # Extrapolated SSA result
-        self.SSA_label = QtWdgt.QLabel('SSA extrapolated<br>to {:.2f} nm'
-                                       .format(self.r_SSA_extrapolate) +
-                                       ' (cm<sup>2</sup>/cm<sup>3</sup>)')
-        result_grid.addWidget(self.SSA_label, 3, 0)
-        self.SSA_box = QtWdgt.QLineEdit()
-        self.SSA_box.setReadOnly(True)
-        self.SSA_box.setPlaceholderText('-')
-        result_grid.addWidget(self.SSA_box, 3, 2)
-        
+        _, self.porosity_box = add_result_entry(result_grid, 'Porosity', 0)
+        _, self.pore_volume_box = \
+            add_result_entry(result_grid, 
+                             'Average pore<br>volume (cm<sup>3</sup>)', 1)
+        _, self.pore_concentration_box = \
+            add_result_entry(result_grid, 
+                              'Pore concentration<br>(cm<sup>-3</sup>)', 2)        
+        self.SSA_label, self.SSA_box = \
+            add_result_entry(result_grid, 
+                             ('SSA extrapolated<br>to {:.2f} nm'
+                              .format(self.r_SSA_extrapolate) +
+                              ' (cm<sup>2</sup>/cm<sup>3</sup>)'), 3)
+
         # Save result button
         self.save_result_button = QtWdgt.QPushButton('Save PDSP Result', self)
         self.save_result_button.setStyleSheet(
@@ -415,6 +514,30 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         self.save_result_button.setEnabled(False)
         result_grid.addWidget(self.save_result_button, 4, 0, 1, 3)
         
+    # Add plot description for user
+    def create_plot_description(self, plot_description_layout):
+        description = QtWdgt.QLabel(
+            f'''
+            <div style='font-size: {round(self.scale*18)}px; 
+                font-style: italic; margin: {round(10*self.scale)}px;'>
+            <p style='margin-bottom: {5*self.scale}px;'>
+            <b>dV/dr: </b>
+            Differential pore volume per unit weight.</p>
+
+            <p style='margin-bottom: {5*self.scale}px;'>
+            <b>f(r): </b>
+            Probability density function of the pore sizes (number-weighted pore size distribution).</p>
+
+            <p>
+            <b>SSA(R): </b>
+            Specific surface area for probe with radius R, 
+            (defined as the sum of SSA's of all pores with radii larger than R, 
+                 divided by the sample volume).</p>
+             </div>
+             ''')
+        description.setWordWrap(True)
+        plot_description_layout.addWidget(description)
+
     # Creating 4 plotting windows for visualising PDSP fit result
     def create_figure_windows(self):
         # Plotting window for SAS data and background-subtracted SAS data
@@ -505,114 +628,121 @@ class PRINSAS_App(QtWdgt.QMainWindow):
             self.IQ_subtract = self.IQ_origin.copy()
             self.IQ_trim = self.IQ_origin.copy()
             bf.plot_SANS_subtract(self.QQ_trim, self.IQ_trim, 
+                                  self.QQ_origin, self.bkgrd,
                                   self.figure_SAS, self.canvas_SAS)
             bf.plot_SANS_fit(self.QQ_trim, self.IQ_trim, 
                              self.figure_SAS_fitted, self.canvas_SAS_fitted, 
                              which = 'input')
             
             # Enable/disable action buttons to prevent accidental inputs
-            self.confirm_bkgrd_Qmax_button.setEnabled(True)
+            self.confirm_bkgrd_Q_range_button.setEnabled(True)
             self.run_fit_button.setEnabled(True)       
             self.recalc_PDSP_input_button.setEnabled(False)
             self.save_result_button.setEnabled(False)
-    
-    # Function create for confirming the background being subtracted and the 
-    # limiting Q-max value, activated when the button 'Confirm Background' is clicked
-    def set_bkgrd_Qmax(self, clear_result = False):
-        current_bkgrd = self.bkgrd
-        current_Qmax = self.Qmax
-        # Assign the value from the background text box to the bkgrd variable
-        if self.bkgrd_input_box.text() != "":
+
+    # Generic function to set numeric attributes with validation.
+    def set_parameter(self, attr, attr_descrpition, input_box, 
+                      default_val, min_val, error_msg):
+        # List of attributes that allow values to be greater than or equal to (≥) the minimum value.
+        attr_larger_equal = ['bkgrd', 'Qmin', 'num_pts_SSA_extrapolate']
+        text = input_box.text()
+        if text:
             try:
-                if float(self.bkgrd_input_box.text()) >= 0:
-                    self.bkgrd = float(self.bkgrd_input_box.text())
-                    print(f"Background value set to: {self.bkgrd}")
-                    self.QQ_subtract, self.IQ_subtract, self.QQ_trim, self.IQ_trim =\
-                        bf.subtract_background(self.QQ_origin, self.IQ_origin,
-                                               self.bkgrd, self.Qmax)
+                # Convert the input text to the appropriate numeric type
+                # based on the parameter.
+                value = (int(text) if attr == 'num_pts_SSA_extrapolate' 
+                         else  float(text)*1e10 if attr == 'contrast'
+                         else float(text))
+                
+                # Check if the value meets the minimum requirement
+                # and assign it to the attribute.
+                if (value >= min_val 
+                    if attr in attr_larger_equal else value > min_val):       
+                    setattr(self, attr, value)
+                    print(f"{attr_descrpition} set to: {value}")
                 else:
-                    print("Invalid background value. Please enter a number larger or equal to 0.")
-                    raise Exception
+                    raise ValueError(error_msg)
             except ValueError:
-                print("Invalid background value. Please enter a number larger or equal to 0.")
-                raise Exception
+                raise ValueError(error_msg)
         else:
-            self.bkgrd = 0.0
-            print(f"Background value set to: {self.bkgrd}")
-            self.QQ_subtract, self.IQ_subtract, self.QQ_trim, self.IQ_trim =\
-                bf.subtract_background(self.QQ_origin, self.IQ_origin,
-                                       self.bkgrd, self.Qmax)
+            setattr(self, attr, default_val)
+            print(f"{attr_descrpition} set to: {default_val}")
             
-        # Assign the value from the Q max text box to the Qmax variable
-        if self.Qmax_input_box.text() != "":
-            try:
-                if float(self.Qmax_input_box.text()) > 0:
-                    self.Qmax = float(self.Qmax_input_box.text())
-                    print(f"Maximum Q value set to: {self.Qmax}")
-                    self.QQ_trim, self.IQ_trim = \
-                        bf.trim_data(self.QQ_subtract, self.IQ_subtract, self.Qmax)
-                else:
-                    print("Invalid Q max value. Please enter a positive number.")
-                    raise Exception
-            except ValueError:
-                print("Invalid Q max value. Please enter a positive number.")
-                raise Exception
-        else:
-            self.Qmax = np.inf
+    # Function create for confirming the background being subtracted and the 
+    # limiting Q range, activated when the button 'Confirm Value' is clicked
+    def set_bkgrd_Q_range(self, clear_result = False, propagate_error = False):
+        current_values = {"bkgrd": self.bkgrd, "Qmin": self.Qmin, "Qmax": self.Qmax}
+
+        try:
+            # Process Background, Qmin, and Qmax Inputs
+            self.set_parameter("bkgrd", 'Background',self.bkgrd_input_box, 
+                               default_val = 0, min_val = 0, 
+                               error_msg = "Invalid background value. Must be >= 0.")
+            self.set_parameter("Qmin", 'Q min', self.Qmin_input_box,
+                               default_val = 0, min_val=0, 
+                               error_msg = "Invalid Q min value. Must be >= 0.")
+            self.set_parameter("Qmax", 'Q max', self.Qmax_input_box, 
+                               default_val = np.inf, min_val=0, 
+                               error_msg = "Invalid Q max value. Must be > 0.")
+        except ValueError as e:
+            if not propagate_error:
+                self.show_error_message(str(e))
+                return
+            else:
+                raise ValueError(str(e))
+
+        # Replot if any values changed
+        if any(current_values[attr] != getattr(self, attr) 
+               for attr in current_values) or clear_result:            
+            print(f"Background value set to: {self.bkgrd}")
+            print(f"Minimum Q value set to: {self.Qmin}")
             print(f"Maximum Q value set to: {self.Qmax}")
-            self.QQ_trim, self.IQ_trim = \
-                bf.trim_data(self.QQ_subtract, self.IQ_subtract, self.Qmax)
-        
-        # Check if there are any changes in values, if yes then replot the 
-        # background-subtracted data, clear result and plots, enabling fit
-        # button ready for a new fit
-        if (current_bkgrd != self.bkgrd or current_Qmax != self.Qmax) or clear_result:
-            bf.plot_SANS_subtract(self.QQ_trim, self.IQ_trim,
-                                  self.figure_SAS, self.canvas_SAS)
-            bf.plot_SANS_fit(self.QQ_trim, self.IQ_trim, 
-                             self.figure_SAS_fitted, self.canvas_SAS_fitted, 
-                             which = 'input')
+
+            self.QQ_subtract, self.IQ_subtract, self.QQ_trim, self.IQ_trim = \
+                bf.subtract_background(self.QQ_origin, self.IQ_origin, self.bkgrd, self.Qmin, self.Qmax)
+
+            bf.plot_SANS_subtract(self.QQ_trim, self.IQ_trim, self.QQ_origin, self.bkgrd, self.figure_SAS, self.canvas_SAS)
+            bf.plot_SANS_fit(self.QQ_trim, self.IQ_trim, self.figure_SAS_fitted, self.canvas_SAS_fitted, which='input')
             self.clear_result()
             self.recalc_PDSP_input_button.setEnabled(False)
             self.run_fit_button.setEnabled(True)
             self.save_result_button.setEnabled(False)
+            
+    # Set PDSP fit parameters: contrast, bulk density, pore radius for SSA extrapolate
+    # number of points for SSA extrapolation
+    def set_PDSP_fit_inputs(self, propagate_error = False):
+        try:
+            self.set_parameter('contrast', 'Contrast between 2 phases', 
+                               self.contrast_input_box, default_val = 3e10, min_val = 0, 
+                               error_msg = 'Invalid contrast value. Must be > 0')
+            self.set_parameter('density', 'Sample bulk density', 
+                               self.density_input_box, default_val = 1.0, min_val = 0, 
+                               error_msg = 'Invalid density value. Must be > 0')
+            self.set_parameter('num_pts_SSA_extrapolate', 
+                               'Number of points for for SSA extrapolation', 
+                               self.num_pts_SSA_extrapolate_input_box, 
+                               default_val = 7, min_val = 3, 
+                               error_msg = ('Invalid number of points for SSA extrapolation. '+
+                                            'Must be an integer >= 3.'))
+            prev_val = self.r_SSA_extrapolate
+            self.set_parameter('r_SSA_extrapolate', 'Pore radius for SSA extrapolation',
+                               self.r_SSA_extrapolate_input_box, 
+                               default_val = 0.2, min_val = 0,
+                               error_msg = ('Invalid radius value for SSA extrapolation. ' +
+                                            'Must be > 0'))
+            if abs(prev_val - self.r_SSA_extrapolate) < 1e-8:
+                self.result_grid.removeWidget(self.SSA_label)
+                self.SSA_label = QtWdgt.QLabel('SSA extrapolated<br>to {:.2f} nm'
+                                               .format(self.r_SSA_extrapolate) +
+                                               ' (cm<sup>2</sup>/cm<sup>3</sup>)')
+                self.result_grid.addWidget(self.SSA_label, 3, 0)
+        except ValueError as e:
+            if not propagate_error:
+                self.show_error_message(str(e))
+                return
+            else:
+                raise ValueError(str(e))
 
-    # Function used for checking the input and assigning new contrast value
-    def set_contrast(self):
-        # Assign the value from the contrast text box to the contrast variable
-        if self.contrast_input_box.text() != "":
-            try:
-                if float(self.contrast_input_box.text()) > 0:
-                    self.contrast = float(self.contrast_input_box.text())*1e10
-                    print(f"Contrast between 2 phases value set to: {self.contrast}")
-                else:
-                    print("Invalid contrast value. Please enter a positive number.")
-                    raise Exception
-            except ValueError:
-                print("Invalid contrast value. Please enter a a positive number.")
-                raise Exception
-        else:
-            self.contrast = 3e10
-            print(f"Contrast between 2 phases value set to: {self.contrast}")
-            
-    # Function used for checking the input and assigning new solid density value
-    def set_density(self):
-        # Assign the value from the contrast text box to the contrast variable
-        if self.density_input_box.text() != "":
-            try:
-                if float(self.density_input_box.text()) > 0:
-                    self.density = float(self.density_input_box.text())
-                    print(f"Sample bulk density set to: {self.density}")
-                else:
-                    print("Invalid density value. Please enter a positive number.")
-                    raise Exception
-            except ValueError:
-                print("Invalid density value. Please enter a positive number.")
-                raise Exception
-        else:
-            self.density = 1.0
-            print(f"Sample bulk density set to: {self.density}")
-            
     # Function used for determining whether the system majorly consists of void
     # or solid for porosity calculation. The input is read based on the state
     # of the flip button LeftRightSwitch()
@@ -623,64 +753,18 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         else:
             self.major_phase = 'void'
         print(f"Major phase of sample: {self.major_phase}")
-        
-    # Function used for setting the pore radius value for SSA extrapolation
-    def set_r_SSA_extrapolate(self):
-        # Assign the value from the r_SSA_extrapolate text box to the r_SSA_extrapolate variable
-        # and change the result label to reflect the corresponding r value
-        if self.r_SSA_extrapolate_input_box.text() != "":
-            try:
-                if float(self.r_SSA_extrapolate_input_box.text()) > 0:
-                    self.r_SSA_extrapolate = float(self.r_SSA_extrapolate_input_box.text())
-                    print(f"Pore radius for SSA extrapolation set to: {self.r_SSA_extrapolate}")
-                    self.result_grid.removeWidget(self.SSA_label)
-                    self.SSA_label = QtWdgt.QLabel('SSA extrapolated<br>to {:.2f} nm'
-                                                   .format(self.r_SSA_extrapolate) +
-                                                   ' (cm<sup>2</sup>/cm<sup>3</sup>)')
-                    self.result_grid.addWidget(self.SSA_label, 3, 0)
-                else:
-                    print("Invalid radius value for SSA extrapolation. Please enter a positive number.")
-                    raise Exception
-            except ValueError:
-                print("Invalid radius value for SSA extrapolation. Please enter a positive number.")
-                raise Exception
-        else:
-            self.r_SSA_extrapolate = 0.2
-            print(f"Pore radius for SSA extrapolation set to: {self.r_SSA_extrapolate}")
-            self.result_grid.removeWidget(self.SSA_label)
-            self.SSA_label = QtWdgt.QLabel('SSA extrapolated<br>to {:.2f} nm'
-                                           .format(self.r_SSA_extrapolate) +
-                                           ' (cm<sup>2</sup>/cm<sup>3</sup>)')
-            self.result_grid.addWidget(self.SSA_label, 3, 0)
-
-    # Function used for setting the number of points used for SSA extrapolation
-    def set_num_pts_SSA_extrapolate(self):
-        # Assign the value from the number of points for SSA extrapolate text box to the num_pts_SSA_extrapolate variable
-        if self.num_pts_SSA_extrapolate_input_box.text() != "":
-            try:
-                if int(self.num_pts_SSA_extrapolate_input_box.text()) >= 3:
-                    self.num_pts_SSA_extrapolate = int(self.num_pts_SSA_extrapolate_input_box.text())
-                    print(f"Number of points for for SSA extrapolation set to: {self.num_pts_SSA_extrapolate}")
-                else:
-                    print("Invalid number of points for for SSA extrapolation. Please enter an integer of at least 3.")
-                    raise Exception
-            except ValueError:
-                print("Invalid number of points for SSA extrapolation. Please enter a positive integer.")
-                raise Exception
-        else:
-            self.num_pts_SSA_extrapolate = 7
-            print(f"Number of points for for SSA extrapolation set to: {self.num_pts_SSA_extrapolate}")
-            
+     
     # This function fits, returns, and plots the PDSP result based on the provided
     # inputs. Activated when the button 'Fit PDSP Model!' is clicked.
     def run_fit_func(self):
-        # Confirming fitting inputs
-        self.set_bkgrd_Qmax(clear_result=True)
-        self.set_contrast()
-        self.set_density()
-        self.set_num_pts_SSA_extrapolate()
-        self.set_r_SSA_extrapolate()
-        
+        try:
+            # Confirming fitting inputs
+            self.set_bkgrd_Q_range(clear_result=True, propagate_error = True)
+            self.set_PDSP_fit_inputs(propagate_error = True)
+        except ValueError as e:
+            self.show_error_message(str(e))
+            return
+            
         # Update program to show old results have been cleared
         QtWdgt.QApplication.processEvents()
         time.sleep(0.001)  
@@ -703,11 +787,12 @@ class PRINSAS_App(QtWdgt.QMainWindow):
     # when the button 'Recalculate Fit Result' is pressed.
     def recalc_PDSP_result(self):
         # Confirm fitting parameters
-        self.set_contrast()
-        self.set_density()
-        self.set_num_pts_SSA_extrapolate()
-        self.set_r_SSA_extrapolate()
-        
+        try:
+            self.set_PDSP_fit_inputs(propagate_error = True)
+        except ValueError as e:
+            self.show_error_message(str(e))
+            return
+
         # Recalculate fit result and display the result
         _, self.SSA, self.dV_dr, self.phi, self.Vpore_avg,\
             self.phi_on_Vavg, self.SSA_extrapolate =\
@@ -772,9 +857,9 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                 # pore concentration, extrapolated SSA
                 file.write('PDSP Fit Result for ' + self.chosen_data_file_dir.split('/')[-1])
                 file.write('\n\n')
-                file.write('Background value (cm-1): ' + '{:.3e}'.format(self.bkgrd))
+                file.write('Background value (cm-1): {:.3e}'.format(self.bkgrd))
                 file.write('\n')
-                file.write('Q-max value (A-1): ' + '{:.3e}'.format(self.Qmax))
+                file.write('Selected Q range (A-1): [{:.3e}, {:.3e}]'.format(self.Qmin, self.Qmax))
                 file.write('\n')
                 file.write('Contrast between 2 phases (cm-2): ' + '{:.3e}'.format(self.contrast))
                 file.write('\n')
@@ -802,7 +887,29 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                  for line in data_table]
             print(f"File saved as {file_name_save} in {self.chosen_save_folder_dir}")
 
-
+    # Function used for creating tool tips for inputs and results
+    def make_tool_tip(self, tool_tip_message):
+        # Create tool tip icon
+        tool_tip = QtWdgt.QLabel()
+        tool_tip.setAlignment(QtCore.Qt.AlignCenter)  # Center align icon
+        icon = (QtWdgt.QApplication.style()             # get PyQt builtin icon
+                .standardIcon(QtWdgt.QApplication
+                              .style().SP_MessageBoxQuestion))
+        tool_tip.setPixmap(icon.pixmap(int(25*self.scale), 
+                                       int(25*self.scale)))  # Set icon size
+        tool_tip.setToolTip(tool_tip_message)
+        return tool_tip
+    
+    # Show input of error without crashing PyInstaller
+    def show_error_message(self, message):
+        msg_box = QtWdgt.QMessageBox()
+        msg_box.setIcon(QtWdgt.QMessageBox.Warning)
+        msg_box.setWindowTitle("Input Error")
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QtWdgt.QMessageBox.Ok)
+        msg_box.exec_()        
+   
+       
 # Flip switch used for selecting either solid or void as the major phase of the 
 # porous system.
 class LeftRightSwitch(QtWdgt.QWidget):
@@ -859,6 +966,7 @@ class LeftRightSwitch(QtWdgt.QWidget):
             if (size * 0.8).is_integer() and (size * 0.1).is_integer():
                 return size
             size += 1
+            
             
 if __name__ == "__main__":
     app = QtWdgt.QApplication(sys.argv)
