@@ -285,7 +285,7 @@ def fit_PDSP_model(QQ, IQ, pts_per_dec, contrast, density_solid,
     logR_1D = np.arange(logR_min, logR_max+logR_del/2, logR_del)
 
     # Determine the fraction value in Equation (2) for each pair of Q and r_i
-    eq2_fraction_2D = calc_eq2_fraction(logR_1D, logR_del, QQ)
+    eq4_fraction_2D = calc_eq4_fraction(logR_1D, logR_del, QQ)
     
     # Determination of the starting value of IQ0i by assuming that the intensity 
     # contribution to a particular Q value consist solely of the intensity 
@@ -294,7 +294,7 @@ def fit_PDSP_model(QQ, IQ, pts_per_dec, contrast, density_solid,
     R_Q_pair_diff = np.abs(R_1D[:,np.newaxis] - 2.5/QQ[:, np.newaxis].T)
     R_Q_corr_pos = np.argmin(R_Q_pair_diff, axis = 1)
     IQ0_guessed = (IQ[R_Q_corr_pos]/
-                   (eq2_fraction_2D[range(len(R_Q_corr_pos)), R_Q_corr_pos]))
+                   (eq4_fraction_2D[range(len(R_Q_corr_pos)), R_Q_corr_pos]))
     
     # Setting arbitrary ranges for result, required for the least square fit 
     log_IQ0_guessed = np.log10(IQ0_guessed)
@@ -311,7 +311,7 @@ def fit_PDSP_model(QQ, IQ, pts_per_dec, contrast, density_solid,
                                                 jac = '3-point',
                                                 bounds = (log_IQ0_lower_bound, 
                                                           log_IQ0_upper_bound),
-                                                args = (IQ, eq2_fraction_2D)).x
+                                                args = (IQ, eq4_fraction_2D)).x
         
         # Smoothing of the obtained fit result, then use it as the input
         # for the next repeated fit
@@ -328,10 +328,10 @@ def fit_PDSP_model(QQ, IQ, pts_per_dec, contrast, density_solid,
                                              jac = '3-point',
                                              bounds = (log_IQ0_lower_bound, 
                                                        log_IQ0_upper_bound),
-                                             args = (IQ, eq2_fraction_2D)).x)
+                                             args = (IQ, eq4_fraction_2D)).x)
     
     # Calculate I(Q) from the fitted data using Equation (2)
-    IQ_fitted = np.sum(IQ0_fitted[:,np.newaxis]*eq2_fraction_2D,0)
+    IQ_fitted = np.sum(IQ0_fitted[:,np.newaxis]*eq4_fraction_2D,0)
 
     # Remove the result values at r_i < 2.5/Q_max
     non_extplted_pos = R_1D - R_min_original >= -1e-8
@@ -364,7 +364,7 @@ def calc_error(log_IQ0, IQ, integral_2D):
 
 # This function calculate the term following IQ0i in equation (2) for all pairs
 # of r_i and Q
-def calc_eq2_fraction(logR_1D, logR_del, QQ):
+def calc_eq4_fraction(logR_1D, logR_del, QQ):
     num_subintervals = 600 # number of intervals for integral calculation set to 600
    
     # Creating pairs of Rmin_i and Rmax_i corresponding to each value of r_i
@@ -455,5 +455,3 @@ def sci_num_dot(num, dec_pts = 2):
     base = int(np.log10(num))
     val = num/10**base
     return (r'${:.' + str(dec_pts) + r'f} \cdot 10^{{{:.0f}}}$').format(val, base)
-
-  
