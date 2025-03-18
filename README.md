@@ -4,7 +4,7 @@
 PRINSAS 2.0 is a GUI-based Python tool for fitting the **Polydisperse Spherical Pore (PDSP) model** to Small Angle Scattering (SAS) data. It extracts pore size distribution, specific surface area (SSA), and porosity from scattering intensity measurements.
 
 ## Model Basis
-PRINSAS 2.0 is based on the **PDSP model**, which describes the differential scattering cross-section of a system composed of polydisperse spherical pores. The model incorporates Debye’s law for two-phase systems and is mathematically represented as:
+PRINSAS 2.0 is based on the **PDSP model**, which describes the differential scattering cross-section of a system composed of polydisperse spherical pores. The model is derived from Debye’s law for two-phase systems and is mathematically represented as:
 
 $$
 \frac{d\Sigma}{d\Omega} (Q) = (\rho_1^* - \rho_2^* )^2  \frac{\phi(1-\phi)}{\bar{V}} \int_{R_{min}}^{R_{max}} V_r^2 f(r) F_{sph} (Qr) dr
