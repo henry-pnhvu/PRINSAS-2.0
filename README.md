@@ -12,13 +12,13 @@ $$
 
 
 where:
-- \( \frac{d\Sigma}{d\Omega} (Q) \) is the differential scattering cross-section,
-- \( \rho_1^*, \rho_2^* \) are the scattering length densities of the two phases,
-- \( \phi \) is the total porosity,
-- \( \bar{V} \) is the average pore volume,
-- \( V_r \) is the volume of a pore of radius \( r \),
-- \( f(r) \) is the pore size distribution,
-- \( F_{sph}(Qr) \) is the form factor for a spherical pore.
+- $$\( \frac{d\Sigma}{d\Omega} (Q) \)$$ is the differential scattering cross-section,
+- $$\( \rho_1^*, \rho_2^* \)$$ are the scattering length densities of the two phases,
+- $$\( \phi \)$$ is the total porosity,
+- $$\( \bar{V} \)$$ is the average pore volume,
+- $$\( V_r \)$$ is the volume of a pore of radius $$\( r \)$$,
+- $$\( f(r) \)$$ is the pore size distribution,
+- $$\( F_{sph}(Qr) \)$$ is the form factor for a spherical pore.
 
 ## Installation and Execution
 ### Running the Software
