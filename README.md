@@ -6,9 +6,10 @@ PRINSAS 2.0 is a GUI-based Python tool for fitting the **Polydisperse Spherical 
 ## Model Basis
 PRINSAS 2.0 is based on the **PDSP model**, which describes the differential scattering cross-section of a system composed of polydisperse spherical pores. The model incorporates Debye’s law for two-phase systems and is mathematically represented as:
 
-\[
+$$
 \frac{d\Sigma}{d\Omega} (Q) = (\rho_1^* - \rho_2^* )^2  \frac{\phi(1-\phi)}{\bar{V}} \int_{R_{min}}^{R_{max}} V_r^2 f(r) F_{sph} (Qr) dr.
-\]
+$$
+
 
 where:
 - \( \frac{d\Sigma}{d\Omega} (Q) \) is the differential scattering cross-section,
