@@ -7,18 +7,18 @@ PRINSAS 2.0 is a GUI-based Python tool for fitting the **Polydisperse Spherical 
 PRINSAS 2.0 is based on the **PDSP model**, which describes the differential scattering cross-section of a system composed of polydisperse spherical pores. The model incorporates Debye’s law for two-phase systems and is mathematically represented as:
 
 $$
-\frac{d\Sigma}{d\Omega} (Q) = (\rho_1^* - \rho_2^* )^2  \frac{\phi(1-\phi)}{\bar{V}} \int_{R_{min}}^{R_{max}} V_r^2 f(r) F_{sph} (Qr) dr.
+\frac{d\Sigma}{d\Omega} (Q) = (\rho_1^* - \rho_2^* )^2  \frac{\phi(1-\phi)}{\bar{V}} \int_{R_{min}}^{R_{max}} V_r^2 f(r) F_{sph} (Qr) dr
 $$
 
 
 where:
-- $$\( \frac{d\Sigma}{d\Omega} (Q) \)$$ is the differential scattering cross-section,
-- $$\( \rho_1^*, \rho_2^* \)$$ are the scattering length densities of the two phases,
-- $$\( \phi \)$$ is the total porosity,
-- $$\( \bar{V} \)$$ is the average pore volume,
-- $$\( V_r \)$$ is the volume of a pore of radius $$\( r \)$$,
-- $$\( f(r) \)$$ is the pore size distribution,
-- $$\( F_{sph}(Qr) \)$$ is the form factor for a spherical pore.
+- $$\frac{d\Sigma}{d\Omega} (Q) $$ is the differential scattering cross-section,
+- $$\rho_1^* $$ and $$\rho_2^* $$ are the scattering length densities of the two phases,
+- $$\phi$$ is the total porosity,
+- $$\bar{V}$$ is the average pore volume,
+- $$V_r$$ is the volume of a pore of radius $$r$$,
+- $$f(r)$$ is the pore size distribution,
+- $$F_{sph}(Qr)$$ is the form factor for a spherical pore.
 
 ## Installation and Execution
 ### Running the Software
@@ -38,20 +38,13 @@ There are two methods to run PRINSAS 2.0:
    - Locate the `.exe` file inside the extracted folder and run it.  
      **Note:** Windows Defender may require manual approval.
 
-## Usage Instructions
-- Load your SAS data using the **Choose File** button.
-- Set fitting parameters such as **background subtraction, Q range, and contrast**.
-- Click **Fit PDSP Model!** to run the fitting algorithm.
-- View fitted results and adjust parameters if needed.
-- Save the results in ASCII format for further analysis.
-
-For a detailed guide on parameter selection and interpretation of results, refer to the **User Manual** included in this repository.
-
 ## Further Information
-For a deeper understanding of the mathematical model, computational implementation, and validation of PRINSAS 2.0, please refer to the accompanying **manuscript**.
+For detailed instructions on using PRINSAS 2.0, including parameter selection and result interpretation, please refer to the **User Manual** included in this repository.
+
+For detailed information regarding the **mathematical model**, **computational implementation**, and **validation** of PRINSAS 2.0, please refer to the accompanying **manuscript**.
 
 ## Contact
-For fit discussions, bug reports, or feature requests, please contact **(...)**.
+For fit discussions, bug reports, or feature requests, please contact henry@pnhvu.com.
 
 ---
 PRINSAS 2.0 is an open-source tool designed to improve accessibility and usability for researchers working with scattering data. Contributions and feedback are welcome!
