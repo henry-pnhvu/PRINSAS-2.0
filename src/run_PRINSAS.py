@@ -8,7 +8,6 @@ Created on Thu Dec 19 19:41:41 2024
 import sys
 import time
 import warnings
-import tempfile
 import numpy as np
 import backend_functions as bf
 import plot_formating as pf
@@ -502,7 +501,6 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                              ('SSA extrapolated<br>to {:.2f} nm'
                               .format(self.r_SSA_extrapolate) +
                               ' (cm<sup>2</sup>/cm<sup>3</sup>)'), 3)
-
         # Save result button
         self.save_result_button = QtWdgt.QPushButton('Save PDSP Result', self)
         self.save_result_button.setStyleSheet(
@@ -640,10 +638,11 @@ class PRINSAS_App(QtWdgt.QMainWindow):
             self.recalc_PDSP_input_button.setEnabled(False)
             self.save_result_button.setEnabled(False)
 
-    # Generic function to set numeric attributes with validation.
+    # Function to assign value to fitting variables with validation.
     def set_parameter(self, attr, attr_descrpition, input_box, 
                       default_val, min_val, error_msg):
-        # List of attributes that allow values to be greater than or equal to (≥) the minimum value.
+        # List of attributes that allow values to be greater than 
+        # or equal to (>=) the minimum value.
         attr_larger_equal = ['bkgrd', 'Qmin', 'num_pts_SSA_extrapolate']
         text = input_box.text()
         if text:
@@ -770,11 +769,15 @@ class PRINSAS_App(QtWdgt.QMainWindow):
         time.sleep(0.001)  
         
         # Run fit function
-        self.rr, self.IQ_fitted, self.IQ0_fitted, self.f_r, self.f_dash_r, self.SSA,\
-            self.dV_dr, self.phi, self.Vpore_avg, self.phi_on_Vavg, self.SSA_extrapolate = \
-                bf.fit_PDSP_model(self.QQ_trim, self.IQ_trim, self.pts_per_dec, 
-                                  self.contrast, self.density, self.r_SSA_extrapolate, 
-                                  self.num_pts_SSA_extrapolate, self.major_phase) 
+        try:
+            self.rr, self.IQ_fitted, self.IQ0_fitted, self.f_r, self.f_dash_r, self.SSA,\
+                self.dV_dr, self.phi, self.Vpore_avg, self.phi_on_Vavg, self.SSA_extrapolate = \
+                    bf.fit_PDSP_model(self.QQ_trim, self.IQ_trim, self.pts_per_dec, 
+                                      self.contrast, self.density, self.r_SSA_extrapolate, 
+                                      self.num_pts_SSA_extrapolate, self.major_phase)
+        except ValueError as e:
+            self.show_error_message(str(e))
+            return
         print('Done PDSP fit!')
         
         # Display result, enable/disable corresponding buttons to prevent accidental inputs.

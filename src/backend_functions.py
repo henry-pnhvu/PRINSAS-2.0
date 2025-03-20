@@ -271,6 +271,10 @@ def plot_fr_SSA(rr, fr, SSA, num_pts_SSA_extrapolate, r_SSA_extrapolate, fig, ca
 # paper
 def fit_PDSP_model(QQ, IQ, pts_per_dec, contrast, density_solid, 
                    r_SSA_extrapolate, num_pts_SSA_extrapolate, major_phase):
+    # Check the input Q range, if it is shorter than 1 decade, return error
+    if len(QQ) < 5 or np.log10(np.max(QQ)/np.min(QQ)) < 1:
+        raise ValueError('Input Q range must span at least 1 decade and contain at least 5 data points')
+        
     # Determining the log distance between each r value based on the number
     # of values per decade required for the result
     logR_del = 1/pts_per_dec
