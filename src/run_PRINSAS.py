@@ -605,6 +605,16 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                                                          self.chosen_data_folder_dir or "", 
                                                          "Text Files (*.txt *.dat *.csv *.ABS)")
         if file_dir:  # If a file is selected
+            # Read and obtain data from the selected file, then assign the
+            # data to the corresponding predefined variables and 
+            try:
+                self.QQ_origin, self.IQ_origin, self.dIQ_origin = \
+                                                    bf.read_SANS_data(file_dir)
+            except ValueError as e:
+                self.show_error_message(str(e))
+                return
+            
+            # Save chosen file location and displaying file info
             self.chosen_data_file_dir = file_dir
             self.chosen_data_folder_dir = '/'.join(self.chosen_data_file_dir.split('/')[:-1])
             self.file_dir_label.setText(self.chosen_data_file_dir.split('/')[-1]) # Display selected file name
@@ -615,10 +625,7 @@ class PRINSAS_App(QtWdgt.QMainWindow):
             bf.clear_plot(self.figure_SAS_fitted, self.canvas_SAS_fitted)
             self.clear_result()
                         
-            # Read and obtain data from the selected file, then assign the
-            # data to the corresponding predefined variables and plot
-            self.QQ_origin, self.IQ_origin, self.dIQ_origin = \
-                                                bf.read_SANS_data(self.chosen_data_file_dir)
+            # Plot the input SAS data
             bf.plot_SANS_data(self.QQ_origin, self.IQ_origin, self.dIQ_origin,
                               self.figure_SAS, self.canvas_SAS)
             self.QQ_subtract = self.QQ_origin.copy()

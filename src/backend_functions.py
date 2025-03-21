@@ -45,26 +45,37 @@ def read_SANS_data(dir_data):
     for line in data_raw:
         try:
             delim_list.append(csv.Sniffer().sniff(line).delimiter)
-        except: pass
+        except csv.Error: pass
     
-    # Identify the most appropriate delimiter from the list of obtained delimiters
-    delim, count = np.unique(delim_list, return_counts=True)
-    select_delim = delim[count.argmax()]
-    
-    # Obtained data entries using the identified delimiters
-    data_splitted = []
-    for line in data_raw:
-        entry_selected = []
-        for entry in line.split(select_delim):
-            try: 
-                if float(entry) >= 0:
-                    entry_selected.append(float(entry))
-            except: pass 
-        data_splitted.append(entry_selected)
-    line_len = [len(line) for line in data_splitted]
-    num_col = max(set(line_len), key=line_len.count)
-    data_selected = np.array([line for line in data_splitted 
-                              if len(line) == num_col])
+    # Ensure delim_list is not empty
+    if not delim_list:
+        raise ValueError("No valid delimiters found in the data.")
+   
+    try:
+        # Identify the most appropriate delimiter from the list of obtained delimiters
+        delim, count = np.unique(delim_list, return_counts=True)
+        select_delim = delim[count.argmax()]
+        
+        # Obtained data entries using the identified delimiters
+        data_splitted = []
+        for line in data_raw:
+            entry_selected = []
+            for entry in line.split(select_delim):
+                try: 
+                    if float(entry) >= 0:
+                        entry_selected.append(float(entry))
+                except: pass 
+            data_splitted.append(entry_selected)
+        line_len = [len(line) for line in data_splitted]
+        num_col = max(set(line_len), key=line_len.count)
+        data_selected = np.array([line for line in data_splitted 
+                                  if len(line) == num_col])
+    except ValueError:
+        raise ValueError('Cannot read file content')
+        
+    # Check whether return result contains any data
+    if data_selected.size == 0:
+        raise ValueError('Cannot read file content')
         
     # Assigned and return read data to Q, IQ, and dIQ
     if data_selected.shape[1] == 2:
