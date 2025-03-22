@@ -27,7 +27,17 @@ where:
 There are two methods to run PRINSAS 2.0:
 
 1. **Using Python (Cross-platform)**:
-   - Install Python (version 3.7 or later) and required dependencies.
+   - Install Python (version 3.7 or later) and required dependencies, including:
+     ```
+     numpy>=1.20
+     scipy>=1.6
+     matplotlib>=3.3
+     pandas>=1.2
+     lmfit>=1.0
+     PyQt5>=5.15
+     tqdm>=4.50
+     ```
+
    - Clone or download this repository.
    - Run the script:
      ```bash
