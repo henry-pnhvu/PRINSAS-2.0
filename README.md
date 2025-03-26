@@ -14,6 +14,7 @@ $$
 $$
 
 where:
+- $$Q $$ is the scattering vector,
 - $$\frac{d\Sigma}{d\Omega} (Q) $$ is the differential scattering cross-section,  
 - $$\rho_1^* $$ and $$\rho_2^* $$ are the scattering length densities of the two phases,  
 - $$\phi $$ is the total porosity,  
