@@ -1054,6 +1054,11 @@ class PRINSAS_App(QtWdgt.QMainWindow):
                 file.write('\n')
                 file.write('Selected Q range (A-1): [{:.3e}, {:.3e}]'.format(self.Qmin, self.Qmax))
                 file.write('\n')
+                if self.choose_dIQ.buttons()[0].isChecked():
+                    file.write('Measurement error dI(Q): From data')
+                elif self.choose_dIQ.buttons()[1].isChecked():
+                    file.write('Measurement error dI(Q): {:.1f}% I(Q)'.format(self.IQ_percent_dIQ))
+                file.write('\n')
                 file.write('Smoothing factor Lambda: {:.1e}'.format(self.lambda_))
                 file.write('\n')
                 file.write('Contrast between 2 phases (cm-2): {:.3e}'.format(self.contrast))
